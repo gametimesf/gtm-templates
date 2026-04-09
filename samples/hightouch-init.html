@@ -1,0 +1,11 @@
+<script type="text/javascript">
+    if (!window.htevents || !window.htevents.invoked) {
+      !function(){var e=window.htevents=window.htevents||[];if(!e.initialize)if(e.invoked)window.console&&console.error&&console.error("Hightouch snippet included twice.");else{e.invoked=!0,e.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","reset","group","track","ready","alias","debug","page","once","off","on","addSourceMiddleware","addIntegrationMiddleware","setAnonymousId","addDestinationMiddleware"],e.factory=function(t){return function(){var n=Array.prototype.slice.call(arguments);return n.unshift(t),e.push(n),e}};for(var t=0;t<e.methods.length;t++){var n=e.methods[t];e[n]=e.factory(n)}e.load=function(t,n){var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src="https://cdn.hightouch-events.com/browser/release/v1-latest/events.min.js";var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(o,r),e._loadOptions=n,e._writeKey=t},e.SNIPPET_VERSION="0.0.1",
+      window._htPage=function(a,b,c){window.htevents&&window.htevents.page&&window.htevents.page(a,b,c);},
+      window._htTrack=function(a,b){window.htevents&&window.htevents.track&&window.htevents.track(a,b);},
+      window._htSetAnonId=function(a){window.htevents&&window.htevents.setAnonymousId&&window.htevents.setAnonymousId(a);},
+      window._htIdentify=function(a,b){window.htevents&&window.htevents.identify&&window.htevents.identify(a,b);},
+      e.load(({{ENV}} === 'production' ? {{Hightouch - API Key [PROD]}} : {{Hightouch - API Key}}),{apiHost:{{Hightouch - API Host}}}),
+      e.page()}}();
+    }
+    </script>

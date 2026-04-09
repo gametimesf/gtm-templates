@@ -1,0 +1,28 @@
+<script>
+    /**
+     * @returns {void}
+     */
+    (function(){
+      if (typeof htevents === 'undefined') {
+        console.log('htevents undefined');
+        return;
+      }
+      
+      var anonymousId = {{Device ID}};
+      htevents.setAnonymousId(anonymousId);
+      
+      var userId = {{CJ - User ID}} || {{Cookie - gt_id}};
+      var traits = {
+        email: {{DLV - User Email}},
+        phone: {{DLV - User Phone}},
+        deviceId: anonymousId,
+        sessionId: {{Cookie - gt_sid}},
+      };
+      
+      try {
+        htevents.identify(userId, traits);
+      } catch(error) {
+        console.error("Could not fire Hightouch 'Identify' event", error);
+      }
+    })()
+  </script>

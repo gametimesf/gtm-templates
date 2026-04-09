@@ -73,7 +73,7 @@ var logToConsole = require('logToConsole');
 // Guard against double-init
 var existing = copyFromWindow('htevents');
 if (existing && existing.invoked) {
-  logToConsole.error('Hightouch snippet included twice.');
+  logToConsole('Hightouch snippet included twice.');
   data.gtmOnSuccess();
   return;
 }
@@ -106,8 +106,16 @@ for (var i = 0; i < e.methods.length; i++) {
 }
 
 e.SNIPPET_VERSION = '0.0.1';
-e._writeKey = data.environment === 'production' ? data.prodApiKey : data.devApiKey;
-e._loadOptions = { apiHost: data.apiHost };
+
+// Override the stub's load function to store the write key and options without
+// DOM injection — injectScript below handles the actual SDK loading
+e.load = function(writeKey, options) {
+  e._writeKey = writeKey;
+  e._loadOptions = options;
+};
+
+var writeKey = data.environment === 'production' ? data.prodApiKey : data.devApiKey;
+e.load(writeKey, { apiHost: data.apiHost });
 
 // Load SDK via injectScript — cacheKey prevents duplicate loads on SPA navigations
 var sdkUrl = 'https://cdn.hightouch-events.com/browser/release/v1-latest/events.min.js';
@@ -115,6 +123,74 @@ injectScript(sdkUrl, function() {
   e.page();
   data.gtmOnSuccess();
 }, data.gtmOnFailure, sdkUrl);
+
+___WEB_PERMISSIONS___
+
+[
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_globals",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "keys",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "htevents"},
+                  {"type": 8, "boolean": true},
+                  {"type": 8, "boolean": true},
+                  {"type": 8, "boolean": false}
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "inject_script",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "urls",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 1,
+                "string": "https://cdn.hightouch-events.com/"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  }
+]
 
 ___NOTES___
 
@@ -136,17 +212,69 @@ other Hightouch tags.
 
 ___TESTS___
 
-[
-  {
-    "name": "Initializes stub and loads SDK when htevents is absent",
-    "code": "var hteventsStub;\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') return hteventsStub;\n  return undefined;\n});\nmock('setInWindow', function(key, value) {\n  if (key === 'htevents') hteventsStub = value;\n});\nmock('injectScript', function(url, onSuccess, onFailure, cacheKey) {\n  onSuccess();\n});\nmock('logToConsole', { error: function() {}, log: function() {} });\n\nrunCode({\n  environment: 'staging',\n  prodApiKey: 'prod-key',\n  devApiKey: 'dev-key',\n  apiHost: 'us-east-1.hightouch-events.com'\n});\n\nassertApi('gtmOnSuccess').wasCalled();"
-  },
-  {
-    "name": "Logs error and succeeds gracefully when snippet fires twice",
-    "code": "var alreadyInit = { invoked: true };\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') return alreadyInit;\n  return undefined;\n});\nmock('setInWindow', function() {});\nmock('injectScript', function() {});\nmock('logToConsole', { error: function() {}, log: function() {} });\n\nrunCode({\n  environment: 'production',\n  prodApiKey: 'prod-key',\n  devApiKey: 'dev-key',\n  apiHost: 'us-east-1.hightouch-events.com'\n});\n\nassertApi('gtmOnSuccess').wasCalled();"
-  },
-  {
-    "name": "Calls gtmOnFailure when SDK load fails",
-    "code": "var hteventsStub;\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') return hteventsStub;\n  return undefined;\n});\nmock('setInWindow', function(key, value) {\n  if (key === 'htevents') hteventsStub = value;\n});\nmock('injectScript', function(url, onSuccess, onFailure, cacheKey) {\n  onFailure();\n});\nmock('logToConsole', { error: function() {}, log: function() {} });\n\nrunCode({\n  environment: 'production',\n  prodApiKey: 'prod-key',\n  devApiKey: 'dev-key',\n  apiHost: 'us-east-1.hightouch-events.com'\n});\n\nassertApi('gtmOnFailure').wasCalled();"
-  }
-]
+scenarios:
+- name: Initializes stub, sets write key via load(), and loads SDK
+  code: |-
+    var hteventsStub;
+    mock('copyFromWindow', function(key) {
+      if (key === 'htevents') return hteventsStub;
+      return undefined;
+    });
+    mock('setInWindow', function(key, value) {
+      if (key === 'htevents') hteventsStub = value;
+    });
+    mock('injectScript', function(url, onSuccess, onFailure, cacheKey) {
+      onSuccess();
+    });
+    mock('logToConsole', function() {});
+
+    runCode({
+      environment: 'staging',
+      prodApiKey: 'prod-key',
+      devApiKey: 'dev-key',
+      apiHost: 'us-east-1.hightouch-events.com'
+    });
+
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Logs error and succeeds gracefully when snippet fires twice
+  code: |-
+    var alreadyInit = { invoked: true };
+    mock('copyFromWindow', function(key) {
+      if (key === 'htevents') return alreadyInit;
+      return undefined;
+    });
+    mock('setInWindow', function() {});
+    mock('injectScript', function() {});
+    mock('logToConsole', function() {});
+
+    runCode({
+      environment: 'production',
+      prodApiKey: 'prod-key',
+      devApiKey: 'dev-key',
+      apiHost: 'us-east-1.hightouch-events.com'
+    });
+
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Calls gtmOnFailure when SDK load fails
+  code: |-
+    var hteventsStub;
+    mock('copyFromWindow', function(key) {
+      if (key === 'htevents') return hteventsStub;
+      return undefined;
+    });
+    mock('setInWindow', function(key, value) {
+      if (key === 'htevents') hteventsStub = value;
+    });
+    mock('injectScript', function(url, onSuccess, onFailure, cacheKey) {
+      onFailure();
+    });
+    mock('logToConsole', function() {});
+
+    runCode({
+      environment: 'production',
+      prodApiKey: 'prod-key',
+      devApiKey: 'dev-key',
+      apiHost: 'us-east-1.hightouch-events.com'
+    });
+
+    assertApi('gtmOnFailure').wasCalled();

@@ -65,17 +65,20 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
+var callInWindow = require('callInWindow');
 var copyFromWindow = require('copyFromWindow');
 var logToConsole = require('logToConsole');
 
-var htevents = copyFromWindow('htevents');
-if (!htevents) {
-  logToConsole.log('htevents undefined');
+// After the Hightouch SDK loads it replaces window.htevents with a class instance
+// that GTM's sandbox cannot copy. We use bridge functions (_htSetAnonId, _htIdentify)
+// set by the init tag's e.ready() callback instead — plain functions survive the boundary.
+if (!copyFromWindow('_htIdentify')) {
+  logToConsole('[Hightouch Identify] SDK bridge not ready (_htIdentify not found). Has the init tag fired and completed SDK load?');
   data.gtmOnFailure();
   return;
 }
 
-htevents.setAnonymousId(data.deviceId);
+callInWindow('_htSetAnonId', data.deviceId);
 
 var userId = data.userId || data.userIdFallback;
 var traits = {
@@ -85,13 +88,66 @@ var traits = {
   sessionId: data.sessionId
 };
 
-try {
-  htevents.identify(userId, traits);
-  data.gtmOnSuccess();
-} catch (error) {
-  logToConsole.error("Could not fire Hightouch 'Identify' event", error);
-  data.gtmOnFailure();
-}
+logToConsole('[Hightouch Identify]', userId, traits);
+callInWindow('_htIdentify', userId, traits);
+data.gtmOnSuccess();
+
+___WEB_PERMISSIONS___
+
+[
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_globals",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "keys",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_htIdentify"},
+                  {"type": 8, "boolean": true},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_htSetAnonId"},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  }
+]
 
 ___NOTES___
 
@@ -110,17 +166,55 @@ The User ID falls back to {{Cookie - gt_id}} when {{CJ - User ID}} is falsy
 
 ___TESTS___
 
-[
-  {
-    "name": "Sets anonymous ID and fires htevents.identify with traits",
-    "code": "var anonymousIdSet, identifyCalledWith;\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') {\n    return {\n      setAnonymousId: function(id) { anonymousIdSet = id; },\n      identify: function(userId, traits) { identifyCalledWith = { userId: userId, traits: traits }; }\n    };\n  }\n});\nmock('logToConsole', { log: function() {}, error: function() {} });\n\nrunCode({\n  deviceId: 'device-abc',\n  userId: 'user-123',\n  userIdFallback: 'cookie-456',\n  email: 'user@example.com',\n  phone: '+15551234567',\n  sessionId: 'sess-xyz'\n});\n\nassertApi('gtmOnSuccess').wasCalled();"
-  },
-  {
-    "name": "Falls back to userIdFallback when userId is falsy",
-    "code": "var resolvedUserId;\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') {\n    return {\n      setAnonymousId: function() {},\n      identify: function(userId, traits) { resolvedUserId = userId; }\n    };\n  }\n});\nmock('logToConsole', { log: function() {}, error: function() {} });\n\nrunCode({\n  deviceId: 'device-abc',\n  userId: '',\n  userIdFallback: 'cookie-fallback',\n  email: undefined,\n  phone: undefined,\n  sessionId: undefined\n});\n\nassertApi('gtmOnSuccess').wasCalled();"
-  },
-  {
-    "name": "Calls gtmOnFailure when htevents is not on window",
-    "code": "mock('copyFromWindow', function(key) { return undefined; });\nmock('logToConsole', { log: function() {}, error: function() {} });\n\nrunCode({\n  deviceId: 'device-abc',\n  userId: 'user-123',\n  userIdFallback: 'cookie-456',\n  email: 'user@example.com',\n  phone: undefined,\n  sessionId: 'sess-xyz'\n});\n\nassertApi('gtmOnFailure').wasCalled();"
-  }
-]
+scenarios:
+- name: Sets anonymous ID and fires identify with traits via bridge functions
+  code: |-
+    var anonIdSet, identifyCalledWith;
+    mock('copyFromWindow', function(key) {
+      if (key === '_htIdentify') { return function() {}; }
+    });
+    mock('callInWindow', function(fn, a, b) {
+      if (fn === '_htSetAnonId') { anonIdSet = a; }
+      if (fn === '_htIdentify') { identifyCalledWith = { userId: a, traits: b }; }
+    });
+
+    runCode({
+      deviceId: 'device-abc',
+      userId: 'user-123',
+      userIdFallback: 'cookie-456',
+      email: 'user@example.com',
+      phone: '+15551234567',
+      sessionId: 'sess-xyz'
+    });
+
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Falls back to userIdFallback when userId is falsy
+  code: |-
+    var resolvedUserId;
+    mock('copyFromWindow', function(key) {
+      if (key === '_htIdentify') { return function() {}; }
+    });
+    mock('callInWindow', function(fn, a, b) {
+      if (fn === '_htIdentify') { resolvedUserId = a; }
+    });
+
+    runCode({
+      deviceId: 'device-abc',
+      userId: '',
+      userIdFallback: 'cookie-fallback'
+    });
+
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Calls gtmOnFailure when SDK bridge is not ready
+  code: |-
+    mock('copyFromWindow', function(key) { return undefined; });
+
+    runCode({
+      deviceId: 'device-abc',
+      userId: 'user-123',
+      userIdFallback: 'cookie-456',
+      email: 'user@example.com',
+      sessionId: 'sess-xyz'
+    });
+
+    assertApi('gtmOnFailure').wasCalled();

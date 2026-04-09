@@ -77,32 +77,79 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
+var callInWindow = require('callInWindow');
 var copyFromWindow = require('copyFromWindow');
-var objectAssign = require('Object.assign');
 var logToConsole = require('logToConsole');
 
-var htevents = copyFromWindow('htevents');
-if (!htevents) {
+// After the Hightouch SDK loads it replaces window.htevents with a class instance
+// that GTM's sandbox cannot copy. We use a bridge function (_htPage) set by the
+// init tag's e.ready() callback instead — plain functions survive the boundary.
+if (!copyFromWindow('_htPage')) {
+  logToConsole('[Hightouch Pageview] SDK bridge not ready (_htPage not found). Has the init tag fired and completed SDK load?');
   data.gtmOnFailure();
   return;
 }
 
-var eventProperties = {
-  mode: data.mode,
-  promo_code: data.promoCode,
-  status: data.status
-};
+var eventProperties = {};
+if (data.mode !== undefined)      eventProperties.mode = data.mode;
+if (data.promoCode !== undefined) eventProperties.promo_code = data.promoCode;
+if (data.status !== undefined)    eventProperties.status = data.status;
 
 // Merge order mirrors the original: base < event-specific < payload
-var properties = objectAssign({}, data.baseProperties || {}, eventProperties, data.buildPayload || {});
-
-try {
-  htevents.page(data.pageType, data.pageTitle, properties);
-  data.gtmOnSuccess();
-} catch (error) {
-  logToConsole.error("Could not fire Hightouch 'Page View' event", error);
-  data.gtmOnFailure();
+var properties = {};
+var sources = [data.baseProperties || {}, eventProperties, data.buildPayload || {}];
+for (var i = 0; i < sources.length; i++) {
+  var src = sources[i];
+  for (var key in src) {
+    properties[key] = src[key];
+  }
 }
+
+logToConsole('[Hightouch Pageview]', data.pageType, data.pageTitle, properties);
+callInWindow('_htPage', data.pageType, data.pageTitle, properties);
+data.gtmOnSuccess();
+
+___WEB_PERMISSIONS___
+
+[
+  {
+    "instance": {
+      "key": {
+        "publicId": "access_globals",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "keys",
+          "value": {
+            "type": 2,
+            "listItem": [
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_htPage"},
+                  {"type": 8, "boolean": true},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "clientAnnotations": {
+      "isEditedByUser": true
+    },
+    "isRequired": true
+  }
+]
 
 ___NOTES___
 
@@ -119,17 +166,39 @@ Parameter mapping:
 
 ___TESTS___
 
-[
-  {
-    "name": "Fires htevents.page with merged properties",
-    "code": "var calledWith = {};\nmock('copyFromWindow', function(key) {\n  if (key === 'htevents') {\n    return {\n      page: function(pageType, pageTitle, props) {\n        calledWith = { pageType: pageType, pageTitle: pageTitle, props: props };\n      }\n    };\n  }\n});\nmock('Object.assign', function() {\n  var result = {};\n  for (var i = 0; i < arguments.length; i++) {\n    var src = arguments[i] || {};\n    for (var key in src) { result[key] = src[key]; }\n  }\n  return result;\n});\nmock('logToConsole', { error: function() {} });\n\nrunCode({\n  pageType: 'pdp',\n  pageTitle: 'Event Detail',\n  mode: 'buy',\n  promoCode: 'SAVE10',\n  status: 'available',\n  baseProperties: { user_id: 'u1' },\n  buildPayload: { payload_ref: 'home' }\n});\n\nassertApi('gtmOnSuccess').wasCalled();"
-  },
-  {
-    "name": "Calls gtmOnFailure when htevents is not on window",
-    "code": "mock('copyFromWindow', function(key) { return undefined; });\nmock('Object.assign', function() { return {}; });\nmock('logToConsole', { error: function() {} });\n\nrunCode({\n  pageType: 'pdp',\n  pageTitle: 'Event Detail',\n  mode: undefined,\n  promoCode: undefined,\n  status: undefined,\n  baseProperties: {},\n  buildPayload: {}\n});\n\nassertApi('gtmOnFailure').wasCalled();"
-  },
-  {
-    "name": "Calls gtmOnFailure when htevents.page throws",
-    "code": "mock('copyFromWindow', function(key) {\n  if (key === 'htevents') {\n    return { page: function() { throw 'page error'; } };\n  }\n});\nmock('Object.assign', function() { return {}; });\nmock('logToConsole', { error: function() {} });\n\nrunCode({\n  pageType: 'home',\n  pageTitle: 'Home',\n  mode: undefined,\n  promoCode: undefined,\n  status: undefined,\n  baseProperties: {},\n  buildPayload: {}\n});\n\nassertApi('gtmOnFailure').wasCalled();"
-  }
-]
+scenarios:
+- name: Fires page with merged properties via bridge function
+  code: |-
+    var calledWith = {};
+    mock('copyFromWindow', function(key) {
+      if (key === '_htPage') { return function() {}; }
+    });
+    mock('callInWindow', function(fn, pageType, pageTitle, props) {
+      if (fn === '_htPage') {
+        calledWith = { pageType: pageType, pageTitle: pageTitle, props: props };
+      }
+    });
+
+    runCode({
+      pageType: 'pdp',
+      pageTitle: 'Event Detail',
+      mode: 'buy',
+      promoCode: 'SAVE10',
+      status: 'available',
+      baseProperties: { user_id: 'u1' },
+      buildPayload: { payload_ref: 'home' }
+    });
+
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Calls gtmOnFailure when SDK bridge is not ready
+  code: |-
+    mock('copyFromWindow', function(key) { return undefined; });
+
+    runCode({
+      pageType: 'pdp',
+      pageTitle: 'Event Detail',
+      baseProperties: {},
+      buildPayload: {}
+    });
+
+    assertApi('gtmOnFailure').wasCalled();
