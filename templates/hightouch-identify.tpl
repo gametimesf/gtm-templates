@@ -85,7 +85,8 @@ var traits = {
   email: data.email,
   phone: data.phone,
   deviceId: data.deviceId,
-  sessionId: data.sessionId
+  sessionId: data.sessionId,
+  mongoId: data.userId
 };
 
 logToConsole('[Hightouch Identify]', userId, traits);
