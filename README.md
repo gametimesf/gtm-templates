@@ -27,10 +27,52 @@ GTM **Custom Templates** use Sandboxed JavaScript — a restricted execution env
 ## What's in This Repo
 
 ```
-samples/          Original Custom HTML tags and variable scripts (reference only)
-templates/        GTM Custom Template .tpl files ready to import
-PLAN.md           Full implementation plan with parameter mappings and migration notes
+src/
+  _shared.js          Injected into every template's sandboxed JS at build time
+  <template-name>/
+    info.json         Template metadata
+    parameters.json   GTM parameter definitions
+    sandboxed.js      Sandboxed JS logic
+    permissions.json  Window global permissions
+    notes.md          GTM notes section
+    __tests__/
+      <test-name>.js  One file per test — @name JSDoc drives the GTM test name
+dist/               Built .tpl files — import these into GTM (do not edit directly)
+samples/            Original Custom HTML tags and reference files
+scripts/            Build tooling
+DEPLOYMENT.md       Automated deployment options (GitHub Actions + GTM API)
 ```
+
+### Build Workflow
+
+Source lives in `src/` — `dist/` is generated output.
+
+```
+npm run build     # builds all dist/*.tpl from src/
+npm run dev       # watches src/ and rebuilds on change
+```
+
+**Never edit `dist/` directly.** Changes must go through `src/` and be rebuilt.
+
+### Writing Tests
+
+Each test is a plain `.js` file in `src/<template-name>/__tests__/`. A JSDoc `@name` tag at the top drives the test name in GTM — the block is stripped from the code before embedding.
+
+```javascript
+/**
+ * @name Fires track with merged properties via bridge function
+ */
+var trackedName, trackedProps;
+mock('copyFromWindow', function(key) {
+  if (key === '_htTrack') { return function() {}; }
+});
+runCode({ eventName: 'search', baseProperties: { user_id: 'u1' } });
+assertApi('gtmOnSuccess').wasCalled();
+```
+
+- `@name` is required — the build throws if it is missing
+- Filename is for humans only (kebab-case, descriptive) — execution order does not matter
+- File content below the JSDoc block is raw GTM test body: `mock(...)`, `runCode(...)`, `assertApi(...)`
 
 ### Templates
 
@@ -39,8 +81,6 @@ PLAN.md           Full implementation plan with parameter mappings and migration
 | `hightouch-track.tpl` | `hightouch-catchall.html`, `hightouch-click.html` | `htevents.track(eventName, props)` |
 | `hightouch-pageview.tpl` | `hightouch-pageview.html` | `htevents.page(pageType, title, props)` |
 | `hightouch-identify.tpl` | `hightouch-identify.html` | `htevents.setAnonymousId()` + `htevents.identify(userId, traits)` |
-
-> `hightouch-init.tpl` is included in `templates/` for reference but should not be used — keep `hightouch-init.html` as a Custom HTML tag.
 
 ---
 
@@ -70,19 +110,81 @@ The following substitutions are used throughout the templates. Native browser gl
 | Standard JS | Sandboxed JS Equivalent |
 |---|---|
 | `window.htevents` | `require('copyFromWindow')('htevents')` |
+| `window.fbq(...)` | `require('callInWindow')('fbq', ...)` |
 | `Object.assign(...)` | inline `for...in` loop |
 | `console.log(...)` | `require('logToConsole')(...)` |
 | Tag completion signal | `data.gtmOnSuccess()` / `data.gtmOnFailure()` |
 
 ---
 
+## Sandboxed JS Capabilities and Limitations
+
+GTM's Sandboxed JavaScript is a restricted subset of JavaScript. Understanding what it can and cannot do determines whether a tag can be converted to a Custom Template or must remain as Custom HTML.
+
+### What Sandboxed JS Can Do
+
+| Capability | Notes |
+|---|---|
+| Call synchronous window functions | Via `callInWindow('fnName', args)` — the function must be declared in `___WEB_PERMISSIONS___` |
+| Read window globals | Via `copyFromWindow('key')` |
+| Pass flat objects as properties | Key-value pairs, strings, numbers, booleans |
+| Pass pre-computed objects | Via a GTM Custom JS variable referenced as the `buildPayload` parameter — use this for nested structures |
+| Standard control flow | `if/else`, `for`, `while`, `switch` |
+| Basic data operations | String concatenation, arithmetic, array iteration |
+| Log to console | Via `require('logToConsole')` |
+| Signal tag completion | `data.gtmOnSuccess()` / `data.gtmOnFailure()` |
+
+### What Sandboxed JS Cannot Do
+
+These are hard limitations of the GTM sandbox — not workaroundable within a template.
+
+| Limitation | Why it matters | Workaround |
+|---|---|---|
+| **Promises / async/await** | No async execution model exists in the sandbox | Keep tag as Custom HTML |
+| **`crypto.subtle`** (SHA-256 etc.) | Async Promise-based API — unavailable | Keep tag as Custom HTML. The `ttq-identify` tag is the example: it hashes a phone number before sending, which requires async crypto |
+| **`try/catch/finally`** | Explicitly unsupported by the GTM sandbox parser | Structure code defensively with guard checks before calling |
+| **DOM manipulation** | `document.createElement`, `querySelector`, `appendChild` etc. are unavailable | Keep tag as Custom HTML if DOM access is required |
+| **`setTimeout` / `setInterval`** | No timer APIs exist | No workaround — async retry logic cannot be implemented in templates |
+| **`fetch` / `XMLHttpRequest`** | No direct HTTP request APIs | Use GTM's `sendPixel` for fire-and-forget GET requests |
+| **`Object.assign`** | Not available via `require()` | Use an inline `for...in` merge loop |
+| **Spread / destructuring syntax** | ES6+ syntax support is unreliable in the sandbox | Use explicit variable assignments instead |
+| **`localStorage` / `sessionStorage`** | Direct storage access is blocked | Use GTM's storage APIs via `require('localStorage')` etc. |
+| **Dynamic code execution** | Blocked entirely for security | No workaround |
+| **Arbitrary `require()`** | Only GTM's own sandboxed APIs are available | Cannot import npm packages or external modules |
+| **Wildcard global permissions** | `access_globals` keys must be valid JS identifiers — wildcards are rejected | Declare each vendor global explicitly in `___WEB_PERMISSIONS___` |
+| **Nested objects in the Properties table** | The key-value table parameter only supports flat string values | Pass nested structures via a GTM Custom JS variable referenced as `buildPayload` |
+
+### The Custom HTML Decision Rule
+
+Convert a tag to a Custom Template **unless** it requires any of:
+
+- Async operations (Promises, `crypto.subtle`, callbacks that resolve later)
+- DOM manipulation during the call
+- `try/catch` around the SDK call for error handling
+
+Tags that fire **once per page load** (not on every SPA navigation) have lower conversion priority — their DOM impact is a single `<script>` element, not an accumulating one. The Hightouch init tag is the canonical example.
+
+### Adding a New Vendor to the Generic Tag
+
+The generic template cannot use wildcard permissions — each vendor's window global must be explicitly declared in `src/generic-js-tag/permissions.json`. To add a new vendor:
+
+1. Add an entry to `src/generic-js-tag/permissions.json` with the global name, `read: true`, `write: false`, `execute: true`
+2. If the vendor uses dot notation (e.g. `ttq.track`), add two entries: root object (read only) and the method (execute only)
+3. Run `npm run build`
+4. Re-import `dist/generic-js-tag.tpl` into GTM and approve the new permission
+
+Current declared vendors: `fbq` (Meta), `spdt` (Spotify), `ttq.track` (TikTok), `DD_RUM` (Datadog), `ire` (Impact Radius), `podscribe` (Podscribe), `_uetqPush` (Microsoft Ads)
+
+---
+
 ## Importing into GTM
 
-1. In GTM, go to **Templates → Tag Templates → New**
-2. Click the menu (⋮) → **Import**
-3. Select a `.tpl` file from the `templates/` directory
-4. Review the permissions GTM surfaces, then click **Save**
-5. Repeat for the three event tracking templates
+1. Run `npm run build` to generate `dist/`
+2. In GTM, go to **Templates → Tag Templates → New**
+3. Click the menu (⋮) → **Import**
+4. Select a `.tpl` file from the `dist/` directory
+5. Review the permissions GTM surfaces, then click **Save**
+6. Repeat for each template
 
 Run the built-in **unit tests** (Templates editor → Run Tests) for each template before creating tag instances.
 

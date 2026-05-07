@@ -1,0 +1,9 @@
+{
+  "displayName": "Datadog RUM",
+  "description": "Calls DD_RUM.addAction(), DD_RUM.setUser(), or DD_RUM.setAccount() with a context/properties object. Select the method from the dropdown — Action Name is only required for addAction.",
+  "categories": ["ANALYTICS"],
+  "id": "cvt_datadog_rum",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

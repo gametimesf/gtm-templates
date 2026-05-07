@@ -79,22 +79,24 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
+// Injected into every template at build time.
+// reportError forwards to window._reportError (set by the Error Bridge Custom HTML tag).
+// callInWindow silently no-ops if _reportError is not yet on window.
+function reportError(message, ctx) {
+  require('callInWindow')('_reportError', message, ctx);
+}
+
 var callInWindow = require('callInWindow');
 var copyFromWindow = require('copyFromWindow');
 var logToConsole = require('logToConsole');
 
-// After the Hightouch SDK loads it replaces window.htevents with a class instance
-// that GTM's sandbox cannot copy. We use a bridge function (_htTrack) set by the
-// init tag's e.ready() callback instead — plain functions survive the boundary.
 if (!copyFromWindow('_htTrack')) {
   logToConsole('[Hightouch Track] SDK bridge not ready (_htTrack not found). Has the init tag fired and completed SDK load?');
+  reportError('[GTM:error] _htTrack not found on window', { template: 'hightouch-track', eventName: data.eventName });
   data.gtmOnFailure();
   return;
 }
 
-// Only include properties that were actually configured for this tag instance.
-// This prevents sending null/undefined keys to Hightouch for event types
-// that don't use certain properties (e.g. click events don't need search_session_id).
 var eventProperties = {};
 if (data.interaction !== undefined)     eventProperties.interaction = data.interaction;
 if (data.sourcePageType !== undefined)  eventProperties.source_page_type = data.sourcePageType;
@@ -102,7 +104,6 @@ if (data.targetPageType !== undefined)  eventProperties.target_page_type = data.
 if (data.searchSessionId !== undefined) eventProperties.search_session_id = data.searchSessionId;
 if (data.searchTerm !== undefined)      eventProperties.search_term = data.searchTerm;
 
-// Merge order mirrors the original: base < event-specific < payload
 var properties = {};
 var sources = [data.baseProperties || {}, eventProperties, data.buildPayload || {}];
 for (var i = 0; i < sources.length; i++) {
@@ -145,6 +146,21 @@ ___WEB_PERMISSIONS___
                   {"type": 8, "boolean": false},
                   {"type": 8, "boolean": true}
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_reportError"},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
               }
             ]
           }
@@ -161,6 +177,8 @@ ___WEB_PERMISSIONS___
 ___NOTES___
 
 Replaces: hightouch-catchall.html, hightouch-click.html (Custom HTML tags)
+
+Prerequisite: Error Bridge Custom HTML tag must fire before this tag (All Pages, high priority).
 
 Tag instance configuration:
 
@@ -199,7 +217,7 @@ scenarios:
         trackedProps = props;
       }
     });
-
+    
     runCode({
       eventName: 'search',
       interaction: 'button_click',
@@ -209,16 +227,20 @@ scenarios:
       baseProperties: { user_id: 'u1' },
       buildPayload: { payload_custom: 'val' }
     });
-
+    
     assertApi('gtmOnSuccess').wasCalled();
-- name: Calls gtmOnFailure when SDK bridge is not ready
+- name: Calls gtmOnFailure and reports error when bridge not ready
   code: |-
+    var errorReported = false;
     mock('copyFromWindow', function(key) { return undefined; });
-
+    mock('callInWindow', function(fn) {
+      if (fn === '_reportError') { errorReported = true; }
+    });
+    
     runCode({
       eventName: 'click',
       baseProperties: {},
       buildPayload: {}
     });
-
+    
     assertApi('gtmOnFailure').wasCalled();

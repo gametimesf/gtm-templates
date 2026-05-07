@@ -1,0 +1,15 @@
+[
+  {
+    "type": "TEXT",
+    "name": "myParam",
+    "displayName": "My Parameter",
+    "simpleValueType": true,
+    "help": "Description shown in GTM UI.",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  }
+]

@@ -1,0 +1,39 @@
+<script type="text/javascript">
+    function init() {
+        var hash = function(stringToHash) {
+            var msgUint8 = new TextEncoder().encode(stringToHash); // encode as (utf-8) Uint8Array
+            if (window && window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest === 'function') {
+                return window.crypto.subtle.digest('SHA-256', msgUint8).then(function(hashBuffer) {
+                    var hashArray = Array.from(new Uint8Array(hashBuffer)); // convert buffer to byte array
+                    var hashHex = hashArray
+                        .map(function(b) {
+                            return b.toString(16).padStart(2, '0')
+                        })
+                        .join(''); // convert bytes to hex string
+
+                    return hashHex;
+                }).catch(function(err) {
+                    throw new Error(err);
+                })
+            }
+        }
+
+        if (typeof window === 'undefined' || typeof window.ttq === 'undefined') return;
+
+        var userPhone = '{{DLV - User Phone}}';
+
+        if (!userPhone || userPhone === 'undefined') return;
+      
+        userPhone = '+1' + userPhone;
+
+        hash(userPhone).then(function(hashedPhoneNumber) {
+            window.ttq.identify({
+                "phone_number": hashedPhoneNumber,
+            });
+        }).catch(function(err) {
+            console.error(err);
+        });
+    }
+
+    init();
+</script>

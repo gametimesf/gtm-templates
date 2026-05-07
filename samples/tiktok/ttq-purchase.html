@@ -1,0 +1,15 @@
+<script>
+    (function() {
+        if (typeof window === 'undefined' || typeof window.ttq === 'undefined') return;
+
+        window.ttq.track('PlaceAnOrder', {
+            "value": "{{Ecommerce - Purchase - Order GMV}}",
+            "currency": "USD",
+            "contents": [{
+                "content_id": "{{CJ - Dynamic - Listing ID}}",
+                "content_type": "product",
+                "content_name": "{{CJ - Dynamic - Event ID}}"
+            }]
+        })
+    })()
+</script>

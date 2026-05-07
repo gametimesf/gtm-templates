@@ -1,0 +1,14 @@
+<script>
+    if (fbq !== undefined) {
+      try {
+        fbq('track', "AddToCart", {
+          currency: "USD", 
+          value: "{{DLV - Total Price}}", 
+          num_items: "{{DLV - Seat Quantity}}", 
+          content_ids: "{{CJ - Dynamic - Listing ID}}"
+        });
+      } catch(e) {
+        console.error('Error firing Meta InitiateCheckout event', e)
+      }
+    }
+  </script>

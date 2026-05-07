@@ -1,0 +1,11 @@
+<script>
+    if (fbq !== undefined) {
+      try {
+        fbq('track', 'ViewContent', {
+          content_ids: '{{CJ - Dynamic - Event ID}}'
+        });
+      } catch(e) {
+        console.error('Error firing Meta ViewContent event', e)
+      }
+    }
+  </script>

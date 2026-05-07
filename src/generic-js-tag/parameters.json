@@ -1,0 +1,63 @@
+[
+  {
+    "type": "TEXT",
+    "name": "windowFunction",
+    "displayName": "Window Function",
+    "simpleValueType": true,
+    "help": "The global function to call. Use a plain name for top-level functions (e.g. fbq, spdt) or dot notation for nested methods (e.g. ttq.track). The root object is checked for existence before the call is made.",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "methodArg",
+    "displayName": "Method Arg (optional)",
+    "simpleValueType": true,
+    "help": "Some SDKs require a method type as the first argument before the event name (e.g. 'track' for fbq, which is called as fbq('track', eventName, props)). Leave blank for SDKs that use fn(eventName, props) directly."
+  },
+  {
+    "type": "TEXT",
+    "name": "eventName",
+    "displayName": "Event Name",
+    "simpleValueType": true,
+    "help": "The event name passed to the function (e.g. ViewContent, purchase, PlaceAnOrder).",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "SIMPLE_TABLE",
+    "name": "properties",
+    "displayName": "Properties",
+    "help": "Flat key-value pairs passed as the properties object. Values can reference GTM variables (e.g. {{DLV - Total Price}}) or be literal strings. For nested structures (arrays, nested objects), use the Payload field instead.",
+    "simpleTableColumns": [
+      {
+        "defaultValue": "",
+        "displayName": "Key",
+        "name": "key",
+        "type": "TEXT"
+      },
+      {
+        "defaultValue": "",
+        "displayName": "Value",
+        "name": "value",
+        "type": "TEXT",
+        "valueHint": "{{GTM Variable}} or literal"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "buildPayload",
+    "displayName": "Payload (optional)",
+    "simpleValueType": true,
+    "help": "Reference a Custom JavaScript variable that returns a plain object. Merged on top of Properties — payload values win on key conflicts. Use this for nested structures (e.g. TikTok's contents array) that cannot be expressed in the flat Properties table."
+  }
+]

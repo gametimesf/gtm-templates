@@ -1,0 +1,11 @@
+<script>
+	(function(){
+		if (typeof window.spdt !== 'function') return;
+
+		window.spdt('viewProduct', {
+			currency: {{Currency}},
+			product_id: {{Parse Event ID}},
+			product_name: {{JavaScript - Page Title}}
+		});
+	})();
+</script>

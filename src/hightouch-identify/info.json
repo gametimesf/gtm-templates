@@ -1,0 +1,9 @@
+{
+  "displayName": "Hightouch Identify",
+  "description": "Sets the Hightouch anonymous ID and fires an htevents.identify() call with user traits. Replaces the Custom HTML identify tag.",
+  "categories": ["ANALYTICS"],
+  "id": "cvt_hightouch_identify",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

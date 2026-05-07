@@ -1,0 +1,64 @@
+[
+  {
+    "type": "TEXT",
+    "name": "eventName",
+    "displayName": "Event Name",
+    "simpleValueType": true,
+    "help": "The name of the event to track. Use {{Event}} for the current GTM event name, or enter a literal string (e.g. 'click').",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "interaction",
+    "displayName": "Interaction",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Dynamic - Interaction}}. Leave blank if not applicable to this event type."
+  },
+  {
+    "type": "TEXT",
+    "name": "sourcePageType",
+    "displayName": "Source Page Type",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Page Source}}."
+  },
+  {
+    "type": "TEXT",
+    "name": "targetPageType",
+    "displayName": "Target Page Type",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - Target Page}}. Used for click events. Leave blank for catchall/search events."
+  },
+  {
+    "type": "TEXT",
+    "name": "searchSessionId",
+    "displayName": "Search Session ID",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - Search Session ID}}. Used for search/catchall events. Leave blank for click events."
+  },
+  {
+    "type": "TEXT",
+    "name": "searchTerm",
+    "displayName": "Search Term",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - Search Term}}. Used for search/catchall events. Leave blank for click events."
+  },
+  {
+    "type": "TEXT",
+    "name": "baseProperties",
+    "displayName": "Base Properties",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Base Properties}}. Must resolve to a plain object at runtime."
+  },
+  {
+    "type": "TEXT",
+    "name": "buildPayload",
+    "displayName": "Payload",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Build Payload}}. Must resolve to a plain object at runtime."
+  }
+]

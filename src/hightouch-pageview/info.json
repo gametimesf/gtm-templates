@@ -1,0 +1,9 @@
+{
+  "displayName": "Hightouch Pageview",
+  "description": "Fires an htevents.page() call with merged base properties, event-specific properties, and dynamic payload. Replaces the Custom HTML pageview tag.",
+  "categories": ["ANALYTICS"],
+  "id": "cvt_hightouch_pageview",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

@@ -77,15 +77,20 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
+// Injected into every template at build time.
+// reportError forwards to window._reportError (set by the Error Bridge Custom HTML tag).
+// callInWindow silently no-ops if _reportError is not yet on window.
+function reportError(message, ctx) {
+  require('callInWindow')('_reportError', message, ctx);
+}
+
 var callInWindow = require('callInWindow');
 var copyFromWindow = require('copyFromWindow');
 var logToConsole = require('logToConsole');
 
-// After the Hightouch SDK loads it replaces window.htevents with a class instance
-// that GTM's sandbox cannot copy. We use a bridge function (_htPage) set by the
-// init tag's e.ready() callback instead — plain functions survive the boundary.
 if (!copyFromWindow('_htPage')) {
   logToConsole('[Hightouch Pageview] SDK bridge not ready (_htPage not found). Has the init tag fired and completed SDK load?');
+  reportError('[GTM:error] _htPage not found on window', { template: 'hightouch-pageview', pageType: data.pageType });
   data.gtmOnFailure();
   return;
 }
@@ -95,7 +100,6 @@ if (data.mode !== undefined)      eventProperties.mode = data.mode;
 if (data.promoCode !== undefined) eventProperties.promo_code = data.promoCode;
 if (data.status !== undefined)    eventProperties.status = data.status;
 
-// Merge order mirrors the original: base < event-specific < payload
 var properties = {};
 var sources = [data.baseProperties || {}, eventProperties, data.buildPayload || {}];
 for (var i = 0; i < sources.length; i++) {
@@ -138,6 +142,21 @@ ___WEB_PERMISSIONS___
                   {"type": 8, "boolean": false},
                   {"type": 8, "boolean": true}
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_reportError"},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
               }
             ]
           }
@@ -154,6 +173,8 @@ ___WEB_PERMISSIONS___
 ___NOTES___
 
 Replaces: hightouch-pageview.html (Custom HTML tag)
+
+Prerequisite: Error Bridge Custom HTML tag must fire before this tag (All Pages, high priority).
 
 Parameter mapping:
   Page Type       -> {{CJ - Dynamic - Page Type}}
@@ -178,7 +199,7 @@ scenarios:
         calledWith = { pageType: pageType, pageTitle: pageTitle, props: props };
       }
     });
-
+    
     runCode({
       pageType: 'pdp',
       pageTitle: 'Event Detail',
@@ -188,17 +209,21 @@ scenarios:
       baseProperties: { user_id: 'u1' },
       buildPayload: { payload_ref: 'home' }
     });
-
+    
     assertApi('gtmOnSuccess').wasCalled();
-- name: Calls gtmOnFailure when SDK bridge is not ready
+- name: Calls gtmOnFailure and reports error when bridge not ready
   code: |-
+    var errorReported = false;
     mock('copyFromWindow', function(key) { return undefined; });
-
+    mock('callInWindow', function(fn) {
+      if (fn === '_reportError') { errorReported = true; }
+    });
+    
     runCode({
       pageType: 'pdp',
       pageTitle: 'Event Detail',
       baseProperties: {},
       buildPayload: {}
     });
-
+    
     assertApi('gtmOnFailure').wasCalled();

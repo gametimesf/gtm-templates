@@ -1,0 +1,15 @@
+<script>
+	(function () {
+		if (typeof window.spdt !== "function") return;
+      
+		window.spdt("purchase", {
+			currency: {{Currency}},
+			discount_code: {{DLV - Order Promo Code}},
+			is_new_customer: {{DLV - Is New User}},
+			line_items: {{DLV - Listing ID}},
+			order_id: {{Ecommerce - Purchase - Order ID}},
+			quantity: {{Ecommerce - Purchase - Order Ticket Quantity}},
+			value: {{Ecommerce - Purchase - Order GMV}},
+		});
+	})();
+</script>

@@ -1,0 +1,9 @@
+{
+  "displayName": "Generic JS Tag",
+  "description": "Calls any window function (e.g. fbq, spdt, ttq.track) with an event name and flat key-value properties. Covers SDKs that follow a fn(eventName, props) or fn(method, eventName, props) call pattern. Does not support async operations.",
+  "categories": ["ANALYTICS", "ADVERTISING"],
+  "id": "cvt_generic_js_tag",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

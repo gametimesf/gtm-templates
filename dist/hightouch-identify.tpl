@@ -35,13 +35,6 @@ ___TEMPLATE_PARAMETERS___
   },
   {
     "type": "TEXT",
-    "name": "userIdFallback",
-    "displayName": "User ID Fallback",
-    "simpleValueType": true,
-    "help": "Reference {{Cookie - gt_id}}. Used when User ID is falsy."
-  },
-  {
-    "type": "TEXT",
     "name": "email",
     "displayName": "Email",
     "simpleValueType": true,
@@ -65,22 +58,27 @@ ___TEMPLATE_PARAMETERS___
 
 ___SANDBOXED_JS_FOR_WEB_TEMPLATE___
 
+// Injected into every template at build time.
+// reportError forwards to window._reportError (set by the Error Bridge Custom HTML tag).
+// callInWindow silently no-ops if _reportError is not yet on window.
+function reportError(message, ctx) {
+  require('callInWindow')('_reportError', message, ctx);
+}
+
 var callInWindow = require('callInWindow');
 var copyFromWindow = require('copyFromWindow');
 var logToConsole = require('logToConsole');
 
-// After the Hightouch SDK loads it replaces window.htevents with a class instance
-// that GTM's sandbox cannot copy. We use bridge functions (_htSetAnonId, _htIdentify)
-// set by the init tag's e.ready() callback instead — plain functions survive the boundary.
 if (!copyFromWindow('_htIdentify')) {
   logToConsole('[Hightouch Identify] SDK bridge not ready (_htIdentify not found). Has the init tag fired and completed SDK load?');
+  reportError('[GTM:error] _htIdentify not found on window', { template: 'hightouch-identify' });
   data.gtmOnFailure();
   return;
 }
 
 callInWindow('_htSetAnonId', data.deviceId);
 
-var userId = data.userId || data.userIdFallback;
+var userId = data.userId;
 var traits = {
   email: data.email,
   phone: data.phone,
@@ -137,6 +135,21 @@ ___WEB_PERMISSIONS___
                   {"type": 8, "boolean": false},
                   {"type": 8, "boolean": true}
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {"type": 1, "string": "key"},
+                  {"type": 1, "string": "read"},
+                  {"type": 1, "string": "write"},
+                  {"type": 1, "string": "execute"}
+                ],
+                "mapValue": [
+                  {"type": 1, "string": "_reportError"},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": false},
+                  {"type": 8, "boolean": true}
+                ]
               }
             ]
           }
@@ -154,20 +167,34 @@ ___NOTES___
 
 Replaces: hightouch-identify.html (Custom HTML tag)
 
+Prerequisite: Error Bridge Custom HTML tag must fire before this tag (All Pages, high priority).
+
 Parameter mapping:
   Device ID (Anonymous ID) -> {{Device ID}}
   User ID                  -> {{CJ - User ID}}
-  User ID Fallback         -> {{Cookie - gt_id}}
   Email                    -> {{DLV - User Email}}
   Phone                    -> {{DLV - User Phone}}
   Session ID               -> {{Cookie - gt_sid}}
 
-The User ID falls back to {{Cookie - gt_id}} when {{CJ - User ID}} is falsy
-(undefined, null, empty string), preserving the || behaviour from the original tag.
-
 ___TESTS___
 
 scenarios:
+- name: Calls gtmOnFailure and reports error when bridge not ready
+  code: |-
+    var errorReported = false;
+    mock('copyFromWindow', function(key) { return undefined; });
+    mock('callInWindow', function(fn) {
+      if (fn === '_reportError') { errorReported = true; }
+    });
+    
+    runCode({
+      deviceId: 'device-abc',
+      userId: 'user-123',
+      email: 'user@example.com',
+      sessionId: 'sess-xyz'
+    });
+    
+    assertApi('gtmOnFailure').wasCalled();
 - name: Sets anonymous ID and fires identify with traits via bridge functions
   code: |-
     var anonIdSet, identifyCalledWith;
@@ -178,44 +205,13 @@ scenarios:
       if (fn === '_htSetAnonId') { anonIdSet = a; }
       if (fn === '_htIdentify') { identifyCalledWith = { userId: a, traits: b }; }
     });
-
+    
     runCode({
       deviceId: 'device-abc',
       userId: 'user-123',
-      userIdFallback: 'cookie-456',
       email: 'user@example.com',
       phone: '+15551234567',
       sessionId: 'sess-xyz'
     });
-
+    
     assertApi('gtmOnSuccess').wasCalled();
-- name: Falls back to userIdFallback when userId is falsy
-  code: |-
-    var resolvedUserId;
-    mock('copyFromWindow', function(key) {
-      if (key === '_htIdentify') { return function() {}; }
-    });
-    mock('callInWindow', function(fn, a, b) {
-      if (fn === '_htIdentify') { resolvedUserId = a; }
-    });
-
-    runCode({
-      deviceId: 'device-abc',
-      userId: '',
-      userIdFallback: 'cookie-fallback'
-    });
-
-    assertApi('gtmOnSuccess').wasCalled();
-- name: Calls gtmOnFailure when SDK bridge is not ready
-  code: |-
-    mock('copyFromWindow', function(key) { return undefined; });
-
-    runCode({
-      deviceId: 'device-abc',
-      userId: 'user-123',
-      userIdFallback: 'cookie-456',
-      email: 'user@example.com',
-      sessionId: 'sess-xyz'
-    });
-
-    assertApi('gtmOnFailure').wasCalled();

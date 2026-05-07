@@ -1,0 +1,9 @@
+{
+  "displayName": "My Template Name",
+  "description": "One-line description of what this template does.",
+  "categories": ["ANALYTICS"],
+  "id": "cvt_my_template_name",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

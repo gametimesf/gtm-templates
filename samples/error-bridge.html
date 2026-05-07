@@ -1,0 +1,10 @@
+<script>
+window._reportError = function(message, ctx) {
+  if (window.Sentry && window.Sentry.captureMessage) {
+    window.Sentry.captureMessage(message, { level: 'error', extra: ctx });
+  }
+  if (window.DD_RUM && window.DD_RUM.addError) {
+    window.DD_RUM.addError(new Error(message), ctx);
+  }
+};
+</script>

@@ -1,0 +1,64 @@
+[
+  {
+    "type": "SELECT",
+    "name": "method",
+    "displayName": "Method",
+    "simpleValueType": true,
+    "help": "The DD_RUM method to call.",
+    "alwaysInSummary": true,
+    "selectItems": [
+      {"value": "addAction", "displayValue": "addAction"},
+      {"value": "setUser",   "displayValue": "setUser"},
+      {"value": "setAccount","displayValue": "setAccount"}
+    ],
+    "defaultValue": "addAction"
+  },
+  {
+    "type": "TEXT",
+    "name": "actionName",
+    "displayName": "Action Name",
+    "simpleValueType": true,
+    "help": "The RUM action name passed as the first argument to DD_RUM.addAction() — must match exactly what Datadog expects (e.g. 'Checkout Started', 'Purchase', 'Search').",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ],
+    "enablingConditions": [
+      {
+        "paramName": "method",
+        "paramValue": "addAction",
+        "type": "EQUALS"
+      }
+    ]
+  },
+  {
+    "type": "SIMPLE_TABLE",
+    "name": "context",
+    "displayName": "Context / Properties",
+    "help": "Flat key-value pairs passed as the object argument. Values can reference GTM variables (e.g. {{DLV - Total Price}}). For computed or conditional values (e.g. value || undefined to omit falsy keys), use the Payload field instead.",
+    "simpleTableColumns": [
+      {
+        "defaultValue": "",
+        "displayName": "Key",
+        "name": "key",
+        "type": "TEXT"
+      },
+      {
+        "defaultValue": "",
+        "displayName": "Value",
+        "name": "value",
+        "type": "TEXT",
+        "valueHint": "{{GTM Variable}} or literal"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "buildPayload",
+    "displayName": "Payload (optional)",
+    "simpleValueType": true,
+    "help": "Reference a Custom JavaScript variable returning a plain object. Merged on top of Context — payload wins on key conflicts. Use this for conditional or computed values the Context table cannot express, e.g: function() { return { user_id: {{DLV - User ID}} || undefined }; }"
+  }
+]

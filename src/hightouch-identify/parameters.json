@@ -1,0 +1,43 @@
+[
+  {
+    "type": "TEXT",
+    "name": "deviceId",
+    "displayName": "Device ID (Anonymous ID)",
+    "simpleValueType": true,
+    "help": "Reference {{Device ID}}. Used as the anonymous ID via htevents.setAnonymousId() and also included in traits as deviceId.",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "userId",
+    "displayName": "User ID",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - User ID}}. If this resolves to a falsy value, the User ID Fallback is used instead."
+  },
+  {
+    "type": "TEXT",
+    "name": "email",
+    "displayName": "Email",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - User Email}}. Included in identify traits."
+  },
+  {
+    "type": "TEXT",
+    "name": "phone",
+    "displayName": "Phone",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - User Phone}}. Included in identify traits."
+  },
+  {
+    "type": "TEXT",
+    "name": "sessionId",
+    "displayName": "Session ID",
+    "simpleValueType": true,
+    "help": "Reference {{Cookie - gt_sid}}. Included in identify traits."
+  }
+]

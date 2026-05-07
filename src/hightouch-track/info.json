@@ -1,0 +1,9 @@
+{
+  "displayName": "Hightouch Track",
+  "description": "Fires an htevents.track() call. Covers all track-type events (catchall, click, etc.). Configure one tag instance per event type using the optional property parameters.",
+  "categories": ["ANALYTICS"],
+  "id": "cvt_hightouch_track",
+  "type": "TAG",
+  "version": 1,
+  "containerContexts": ["WEB"]
+}

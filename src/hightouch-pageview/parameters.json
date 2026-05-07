@@ -1,0 +1,62 @@
+[
+  {
+    "type": "TEXT",
+    "name": "pageType",
+    "displayName": "Page Type",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Dynamic - Page Type}}. Passed as the first argument to htevents.page().",
+    "alwaysInSummary": true,
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "pageTitle",
+    "displayName": "Page Title",
+    "simpleValueType": true,
+    "help": "Reference {{JavaScript - Page Title}}. Passed as the second argument to htevents.page().",
+    "valueValidators": [
+      {
+        "type": "NON_EMPTY"
+      }
+    ]
+  },
+  {
+    "type": "TEXT",
+    "name": "mode",
+    "displayName": "Mode",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Mode}}."
+  },
+  {
+    "type": "TEXT",
+    "name": "promoCode",
+    "displayName": "Promo Code",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Dynamic - Promo Code}}."
+  },
+  {
+    "type": "TEXT",
+    "name": "status",
+    "displayName": "Status",
+    "simpleValueType": true,
+    "help": "Reference {{DLV - Status}}."
+  },
+  {
+    "type": "TEXT",
+    "name": "baseProperties",
+    "displayName": "Base Properties",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Base Properties}}. Must resolve to a plain object at runtime."
+  },
+  {
+    "type": "TEXT",
+    "name": "buildPayload",
+    "displayName": "Payload",
+    "simpleValueType": true,
+    "help": "Reference {{CJ - Build Payload}}. Must resolve to a plain object at runtime."
+  }
+]
